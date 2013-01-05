@@ -19,13 +19,14 @@
 import wikipedia as pywikibot
 import query
 import itertools
+import datetime
 
 class PageRevision():
-    def __init__(self, page, revId = None, text = None):
+    def __init__(self, page, revId = None, text = None, editDate = None):
         self.page = page
         self.revId = revId
         self.text = text
-
+        self.editDate = editDate
 
     def getSectionDefinitions(self):
         #get section titles and indexes
@@ -37,6 +38,16 @@ class PageRevision():
         if not self.revId is None:
             params[u'oldid'] = self.revId
         result = query.GetData(params, self.page.site())
+
+        # check errors
+        if u'error' in result:
+            errorCode = result[u'error'][u'code']
+            # skip deleted revisions
+            if errorCode == u'permissiondenied':
+                return []
+            raise RuntimeError(result[u'error'])
+            return
+
         sectionsDefinition = [item for item in result[u'parse'][u'sections'] if item[u'level'] == u'2']
         return sectionsDefinition
 
@@ -75,8 +86,7 @@ class PageRevision():
                     # skip this section
                     continue
                 else:
-                    # some other error
-                    return []
+                    raise RuntimeError("%s" % result['error'])
 
             sectionContent = result[u'query'][u'pages'].values()[0][u'revisions'][0][u'*']
 
@@ -99,6 +109,8 @@ class PageRevision():
                 params[u'rvendid'] = self.revId
 
             result = query.GetData(params, self.page.site())
+            if 'error' in result:
+                raise RuntimeError("%s" % result['error'])
             self.text = result[u'query'][u'pages'].values()[0][u'revisions'][0][u'*']
 
         return self.text
@@ -122,7 +134,104 @@ class PageRevision():
 
         return sections
 
-#page = pywikibot.Page(pywikibot.getSite(), u'Вікіпедія:Кнайпа (політики)')
-#pageRevision = PageRevision(page)
-#sections = pageRevision.getSections()
-#print sections
+class PageHistory():
+    def __init__(self, page):
+        self.page = page
+
+    def _getRawHistory(self, reverseOrder = False, revCount = None, startRevId = None, retrieveTexts = False,
+                       properties = u'ids|timestamp|user|comment|size|tags'):
+        dataQ = []
+        thisHistoryDone = False
+
+        params = {
+            u'action': u'query',
+            u'prop': u'revisions',
+            u'titles': self.page.title(),
+            u'rvprop': properties
+        }
+
+        # set content or not
+        if retrieveTexts:
+            params[u'rvprop'] += u'|content'
+
+        # set limit
+        if revCount is None:
+            params[u'rvlimit'] = u'max'
+        else:
+            params[u'rvlimit'] = revCount
+
+        #set first revision from which to start
+        if not startRevId is None:
+            params[u'rvstartid'] = startRevId
+
+        # set order
+        if reverseOrder:
+            params[u'rvdir'] = u'newer'
+
+        # while not retrieved
+        while not thisHistoryDone:
+            #get data
+            result = query.GetData(params, self.page.site())
+            if u'error' in result:
+                raise RuntimeError(u"{0".format(result[u'error']))
+
+            # check if the result is proper
+            pageInfo = result[u'query'][u'pages'].values()[0]
+            if result[u'query'][u'pages'].keys()[0] == "-1":
+                if u'missing' in pageInfo:
+                    raise pywikibot.NoPage(self.page.site(), unicode(self.page), u"Page does not exist.")
+                elif u'invalid' in pageInfo:
+                    raise pywikibot.BadTitle(u'BadTitle: {0}'.format(self))
+
+            for r in pageInfo['revisions']:
+                # set defaults
+                values = {
+                    u'ids': None,
+                    u'timestamp': None,
+                    u'user': None,
+                    u'flags': None,
+                    u'comment': u'',
+                    u'size': -1,
+                    u'tags': [],
+                    u'content': u'',
+                }
+                values.update(r)
+
+                if u'revid' in r:
+                    values[u'ids'] = r[u'revid']
+                if u'*' in r:
+                    values[u'content'] = r[u'*']
+                elements = params[u'rvprop'].split('|')
+                values = dict((e, values[e]) for e in elements)
+                dataQ.append(values)
+
+            if u'query-continue' in result and (revCount is None or len(dataQ) < revCount):
+                params.update(result[u'query-continue'][u'revisions'])
+                if not revCount is None:
+                    params[u'rvlimit'] = revCount - len(dataQ)
+            else:
+                thisHistoryDone = True
+
+        return dataQ
+
+    def getFullHistory(self, reverseOrder = False, revCount = None, startRevId = None):
+        return self.getHistory(reverseOrder = reverseOrder, revCount = revCount, startRevId = startRevId, retrieveTexts = True)
+
+    def getHistory(self, reverseOrder = False, revCount = None, startRevId = None, retrieveTexts = False):
+        rawHistory = self._getRawHistory(reverseOrder = reverseOrder, revCount = revCount, startRevId = startRevId, retrieveTexts = retrieveTexts)
+
+        pageRevisions = []
+        for item in rawHistory:
+            revId = int(item[u'ids'])
+            revDate = datetime.datetime.strptime(item[u'timestamp'], "%Y-%m-%dT%H:%M:%SZ")
+
+            text = item[u'content'] if u'content' in item else None
+
+            pageRevision = PageRevision(self.page, revId = revId, editDate = revDate, text = text)
+            pageRevisions.append(pageRevision)
+
+        return pageRevisions
+
+    def getAllRevisionsCount(self):
+        rawHistory = self._getRawHistory(properties = u'ids')
+        return len(rawHistory)
