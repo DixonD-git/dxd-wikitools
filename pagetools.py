@@ -28,12 +28,12 @@ class PageRevision():
         self.text = text
         self.editDate = editDate
 
-    def getSectionDefinitions(self):
+    def getSectionDefinitions(self, minSectionLevel = 2):
         #get section titles and indexes
         params = {
             u'action': u'parse',
             u'prop': u'sections',
-            u'page': self.page.title()
+            u'page': self.page.sectionFreeTitle()
         }
         if not self.revId is None:
             params[u'oldid'] = self.revId
@@ -48,7 +48,7 @@ class PageRevision():
             raise RuntimeError(result[u'error'])
             return
 
-        sectionsDefinition = [item for item in result[u'parse'][u'sections'] if item[u'level'] == u'2']
+        sectionsDefinition = [item for item in result[u'parse'][u'sections'] if int(item[u'level']) <= minSectionLevel]
         return sectionsDefinition
 
     def getSectionsFull(self):
@@ -90,7 +90,8 @@ class PageRevision():
 
             sectionContent = result[u'query'][u'pages'].values()[0][u'revisions'][0][u'*']
 
-            sections.append({u'title':sectionDefinition[u'line'], u'text': sectionContent})
+            sections.append({u'title':sectionDefinition[u'line'], u'text': sectionContent,
+                             u'anchor':sectionDefinition[u'anchor']})
 
         return sections
 
