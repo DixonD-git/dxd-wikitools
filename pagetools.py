@@ -124,6 +124,9 @@ class PageRevision():
         # get sections definitions
         sectionDefinitions = self.getSectionDefinitions()
 
+        # remove sections from templates
+        sectionDefinitions = [sectionInfo for sectionInfo in sectionDefinitions if not sectionInfo[u'byteoffset'] is None]
+
         # check if response is proper; see https://bugzilla.wikimedia.org/show_bug.cgi?id=25203
         for sectionInfo in sectionDefinitions:
             if sectionInfo[u'byteoffset'] >= len(self.text):
