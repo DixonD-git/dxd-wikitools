@@ -22,11 +22,12 @@ import itertools
 import datetime
 
 class PageRevision():
-    def __init__(self, page, revId = None, text = None, editDate = None):
+    def __init__(self, page, revId = None, text = None, editDate = None, editComment = None):
         self.page = page
         self.revId = revId
         self.text = text
         self.editDate = editDate
+        self.editComment = editComment
 
     def getSectionDefinitions(self, minSectionLevel = 2):
         #get section titles and indexes
@@ -231,7 +232,7 @@ class PageHistory():
 
             text = item[u'content'] if u'content' in item else None
 
-            pageRevision = PageRevision(self.page, revId = revId, editDate = revDate, text = text)
+            pageRevision = PageRevision(self.page, revId = revId, editDate = revDate, text = text, editComment = item[u'comment'])
             pageRevisions.append(pageRevision)
 
         return pageRevisions
