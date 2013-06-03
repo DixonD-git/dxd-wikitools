@@ -16,8 +16,8 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import wikipedia as pywikibot
-import query
+import pywikibot
+from pywikibot.data import api
 import itertools
 import datetime
 
@@ -34,11 +34,12 @@ class PageRevision():
         params = {
             u'action': u'parse',
             u'prop': u'sections',
-            u'page': self.page.sectionFreeTitle()
+            u'page': self.page.title(withSection=False)
         }
         if not self.revId is None:
             params[u'oldid'] = self.revId
-        result = query.GetData(params, self.page.site())
+        params[u'site'] = self.page.site
+        result = pywikibot.data.api.Request(**params).submit()
 
         # check errors
         if u'error' in result:
@@ -78,8 +79,8 @@ class PageRevision():
                 continue
 
             params[u'rvsection'] = sectionIndex
-
-            result = query.GetData(params, self.page.site())
+            params[u'site'] = self.page.site
+            result = pywikibot.data.api.Request(**params).submit()
 
             if u'error' in result:
                 errorCode = result[u'error'][u'code']
@@ -110,7 +111,8 @@ class PageRevision():
                 params[u'rvstartid'] = self.revId
                 params[u'rvendid'] = self.revId
 
-            result = query.GetData(params, self.page.site())
+            params[u'site'] = self.page.site
+            result = pywikibot.data.api.Request(**params).submit()
             if 'error' in result:
                 raise RuntimeError("%s" % result['error'])
             self.text = result[u'query'][u'pages'].values()[0][u'revisions'][0][u'*']
@@ -176,7 +178,7 @@ class PageHistory():
         # while not retrieved
         while not thisHistoryDone:
             #get data
-            result = query.GetData(params, self.page.site())
+            result = pywikibot.data.api.Request(params, self.page.site)
             if u'error' in result:
                 raise RuntimeError(u"{0".format(result[u'error']))
 

@@ -15,19 +15,24 @@
 
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
-import wikipedia as pywikibot
-from login import LoginManager
+import pywikibot
+from pywikibot.data.api import LoginManager
+from pywikibot import config
 
-def getWikiSite(code = None, page = None):
+
+def getWikiSite(code=None, page=None):
     if not code is None:
-        return pywikibot.Site(code = code)
+        if code == 'wikidata':
+            return pywikibot.Site(code=code, fam=code)
+        return pywikibot.Site(code=code)
 
     if not page is None:
         return page.site()
 
-    return pywikibot.Site(code = 'uk')
+    return pywikibot.Site(code='uk')
 
-def templateAliases(templateNames, getRedirectsFromWiki = False):
+
+def templateAliases(templateNames, getRedirectsFromWiki=False):
     templateNamespaces = {u'Шаблон:', u'шаблон:', u'Template:', u'template:'}
 
     # remove namespace from names
@@ -57,17 +62,18 @@ def templateAliases(templateNames, getRedirectsFromWiki = False):
 
     return aliases
 
-def login(username, password = None):
-    site = getWikiSite()
-    loginManager = LoginManager(username=username, site=site, password=password)
-    if site.loggedInAs() <> username:
+
+def login(username, password=None, code=None, site=None):
+    if site is None:
+        site = getWikiSite(code=code)
+
+    config.usernames[site.family.name][site.code] = username
+
+    loginManager = LoginManager(user=username, site=site)
+    if password is None:
+        loginManager.readPassword()
+    if site.user() != username:
         pywikibot.output("Logging in as " + username)
         loginManager.login()
     else:
         pywikibot.output("Already logged in as " + username)
-
-def logout(username):
-    pywikibot.output("Logging out...")
-    site = getWikiSite()
-    loginManager = LoginManager(username=username, site=site)
-    loginManager.logout()
