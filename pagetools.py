@@ -39,7 +39,8 @@ class PageRevision():
         if not self.revId is None:
             params[u'oldid'] = self.revId
         params[u'site'] = self.page.site
-        result = pywikibot.data.api.Request(**params).submit()
+        request = pywikibot.data.api.Request(**params)
+        result = request.submit()
 
         # check errors
         if u'error' in result:
@@ -151,6 +152,7 @@ class PageHistory():
         thisHistoryDone = False
 
         params = {
+            u'site': self.page.site,
             u'action': u'query',
             u'prop': u'revisions',
             u'titles': self.page.title(),
@@ -178,7 +180,8 @@ class PageHistory():
         # while not retrieved
         while not thisHistoryDone:
             #get data
-            result = pywikibot.data.api.Request(params, self.page.site)
+            request = pywikibot.data.api.Request(**params)
+            result = request.submit()
             if u'error' in result:
                 raise RuntimeError(u"{0".format(result[u'error']))
 
@@ -186,7 +189,7 @@ class PageHistory():
             pageInfo = result[u'query'][u'pages'].values()[0]
             if result[u'query'][u'pages'].keys()[0] == "-1":
                 if u'missing' in pageInfo:
-                    raise pywikibot.NoPage(self.page.site(), unicode(self.page), u"Page does not exist.")
+                    raise pywikibot.NoPage(self.page)
                 elif u'invalid' in pageInfo:
                     raise pywikibot.BadTitle(u'BadTitle: {0}'.format(self))
 
