@@ -18,6 +18,7 @@
 
 import pywikibot
 from pywikibot.data import api
+from pywikibot.data.api import APIError
 import itertools
 import datetime
 
@@ -40,7 +41,11 @@ class PageRevision():
             params[u'oldid'] = self.revId
         params[u'site'] = self.page.site
         request = pywikibot.data.api.Request(**params)
-        result = request.submit()
+        try:
+            result = request.submit()
+        except APIError, e:
+            if e.code == u'permissiondenied':
+                return []
 
         # check errors
         if u'error' in result:
